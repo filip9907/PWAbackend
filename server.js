@@ -1,17 +1,23 @@
-const https = require('https');
-const fs = require('fs');
 const express = require('express');
-
 const app = express();
-const PORT = 443;
+const port = process.env.PORT || 3000;
 
-const options = {
-    key: fs.readFileSync('localhost-key.pem'),
-    cert: fs.readFileSync('localhost.pem')
-};
+app.use(express.json());
 
-app.use(express.static(__dirname));
+// CORS — jeśli frontend działa na innym hoście, np. GitHub Pages
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*'); // Możesz tu wpisać konkretną domenę
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
 
-https.createServer(options, app).listen(PORT, () => {
-    console.log(`✅ Serwer HTTPS działa na https://localhost:${PORT}`);
+// Przykładowa trasa rejestracji
+app.post('/register', (req, res) => {
+  console.log('Received registration:', req.body);
+  res.status(200).json({ message: 'Zarejestrowano' });
+});
+
+// Start serwera HTTP
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });
