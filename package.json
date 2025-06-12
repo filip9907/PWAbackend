@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "express": "^5.1.0",
-    "mongoose": "^7.5.0"
+    "mongoose": "^7.5.0",
+    "web-push": "^3.6.7"
   }
 }
