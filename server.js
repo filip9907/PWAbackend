@@ -81,3 +81,42 @@ app.get('/api/transactions/:userId', async (req, res) => {
     res.status(500).json([]);
   }
 });
+
+const webpush = require('web-push');
+
+// VAPID konfig
+webpush.setVapidDetails(
+  'mailto:you@example.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+
+// Model subskrypcji
+const subscriptionSchema = new mongoose.Schema({}, { strict: false });
+const Subscription = mongoose.model('Subscription', subscriptionSchema);
+
+// Endpoint do wysyłania powiadomień
+app.post('/notify', async (req, res) => {
+  try {
+    const subs = await Subscription.find();
+
+    const payload = JSON.stringify({
+      title: '🔔 Nowe powiadomienie!',
+      body: 'Testowe PUSH z backendu Railway!',
+    });
+
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(sub, payload);
+        console.log("✔️ Wysłano");
+      } catch (err) {
+        console.error("❌ Błąd wysyłania:", err);
+      }
+    }
+
+    res.status(200).json({ message: 'Powiadomienia wysłane' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
