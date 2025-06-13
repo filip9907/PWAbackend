@@ -1,34 +1,93 @@
-const webpush = require('web-push');
+// === server.js ===
 const express = require('express');
 const mongoose = require('mongoose');
+const webpush = require('web-push');
+const cors = require('cors');
 
 const app = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 3000;
 
+// Middleware
 app.use(express.json());
+app.use(cors({
+  origin: 'https://filip9907.github.io',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
 
-// === Połączenie z MongoDB ===
-mongoose.connect(process.env.MONGO_URL || 'mongodb://localhost:27017/pwa', {
+// MongoDB
+mongoose.connect(process.env.MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 }).then(() => console.log('✅ Połączono z MongoDB'))
-  .catch(err => console.error('❌ Błąd połączenia z MongoDB:', err));
+  .catch(err => console.error('❌ Błąd MongoDB:', err));
 
-// === Schemat subskrypcji ===
-const subscriptionSchema = new mongoose.Schema({}, { strict: false });
-const Subscription = mongoose.model('Subscription', subscriptionSchema);
+// MODELE
+const User = mongoose.model('User', new mongoose.Schema({
+  username: String,
+  password: String
+}));
 
-// === VAPID keys z ENV ===
-const publicKey = process.env.VAPID_PUBLIC_KEY;
-const privateKey = process.env.VAPID_PRIVATE_KEY;
+const Transaction = mongoose.model('Transaction', new mongoose.Schema({
+  userId: String,
+  type: String,
+  category: String,
+  amount: Number,
+  date: String
+}));
 
+const Subscription = mongoose.model('Subscription', new mongoose.Schema({}, { strict: false }));
+
+// VAPID
 webpush.setVapidDetails(
-  'mailto:kontakt@example.com',
-  publicKey,
-  privateKey
+  'mailto:you@example.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
 );
 
-// === 🔥 [NOWE] Endpoint do zapisu subskrypcji ===
+// ROUTY
+
+// Rejestracja
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+  const existing = await User.findOne({ username });
+  if (existing) return res.status(409).json({ message: "Użytkownik już istnieje" });
+  await new User({ username, password }).save();
+  res.status(200).json({ message: "Zarejestrowano" });
+});
+
+// Logowanie
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+  const user = await User.findOne({ username, password });
+  if (!user) return res.status(401).json({ message: "Błędny login lub hasło" });
+  res.status(200).json({ message: "Zalogowano poprawnie" });
+});
+
+// Dodaj transakcję
+app.post('/api/transactions', async (req, res) => {
+  try {
+    const transaction = new Transaction(req.body);
+    await transaction.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Błąd zapisu transakcji:', err);
+    res.status(500).json({ success: false });
+  }
+});
+
+// Pobierz transakcje
+app.get('/api/transactions/:userId', async (req, res) => {
+  try {
+    const transactions = await Transaction.find({ userId: req.params.userId });
+    res.json(transactions);
+  } catch (err) {
+    console.error('Błąd odczytu transakcji:', err);
+    res.status(500).json([]);
+  }
+});
+
+// Zapisz subskrypcję PUSH
 app.post('/subscribe', async (req, res) => {
   try {
     const subscription = new Subscription(req.body);
@@ -41,25 +100,31 @@ app.post('/subscribe', async (req, res) => {
   }
 });
 
-// === [Opcjonalnie] Testowy endpoint do wysyłki powiadomień ===
-app.post('/send', async (req, res) => {
-  const subs = await Subscription.find({});
-  const payload = JSON.stringify({
-    title: '💸 Uwaga!',
-    body: 'Nowa transakcja została zaksięgowana.',
-  });
+// Wyślij powiadomienia
+app.post('/notify', async (req, res) => {
+  try {
+    const subs = await Subscription.find();
+    const payload = JSON.stringify({
+      title: '🔔 Nowa transakcja!',
+      body: 'Dodano nową transakcję do systemu'
+    });
 
-  for (let sub of subs) {
-    try {
-      await webpush.sendNotification(sub, payload);
-    } catch (err) {
-      console.error('❌ Błąd wysyłania push:', err);
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(sub, payload);
+        console.log("✔️ Wysłano");
+      } catch (err) {
+        console.error("❌ Błąd wysyłania:", err);
+      }
     }
-  }
 
-  res.sendStatus(200);
+    res.status(200).json({ message: 'Powiadomienia wysłane' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// Start serwera
 app.listen(port, () => {
-  console.log(`🚀 Serwer działa na porcie ${port}`);
+  console.log(`🚀 Server działa na porcie ${port}`);
 });
