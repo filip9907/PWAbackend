@@ -49,6 +49,20 @@ app.post('/send', async (req, res) => {
   res.sendStatus(200);
 });
 
+// Endpoint do zapisania subskrypcji
+app.post('/subscribe', async (req, res) => {
+  try {
+    const subscription = new Subscription(req.body);
+    await subscription.save();
+    console.log('✅ Subskrypcja zapisana:', req.body);
+    res.status(201).json({ message: 'Subskrypcja zapisana' });
+  } catch (error) {
+    console.error('❌ Błąd zapisu subskrypcji:', error);
+    res.status(500).json({ message: 'Błąd zapisu subskrypcji' });
+  }
+});
+
+
 app.listen(port, () => {
   console.log(`🚀 Serwer powiadomień działa na http://localhost:${port}`);
 });
