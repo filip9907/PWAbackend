@@ -17,8 +17,12 @@ const subscriptionSchema = new mongoose.Schema({}, { strict: false });
 const Subscription = mongoose.model('Subscription', subscriptionSchema);
 
 // === VAPID KEYS (podmień na swoje) ===
-const publicKey = 'BN1Th8pknPloKF_UsPvMnl1Cu3EdpupaTw2W-uZQqTPSmGdR8aEcjsnpZssuHLa-QAZiR-qSM7lh8bgLjiJg-fQ';
-const privateKey = 'hmmSroO-AJi3OQv-IriAc0sKMobTwBuXoA65zrSnUdg';
+//const publicKey = 'BN1Th8pknPloKF_UsPvMnl1Cu3EdpupaTw2W-uZQqTPSmGdR8aEcjsnpZssuHLa-QAZiR-qSM7lh8bgLjiJg-fQ';
+//const privateKey = 'hmmSroO-AJi3OQv-IriAc0sKMobTwBuXoA65zrSnUdg';
+const publicKey = process.env.VAPID_PUBLIC_KEY;
+const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+
 
 webpush.setVapidDetails(
   'mailto:kontakt@example.com',
