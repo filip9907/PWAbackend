@@ -1,33 +1,47 @@
+// server.js
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
+const webpush = require('web-push');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Middleware
+app.use(cors());
 app.use(express.json());
 
-// CORS
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
-
-// Połączenie z Mongo
+// MongoDB
 mongoose.connect(process.env.MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true
-}).then(() => console.log(' Połączono z MongoDB'))
-  .catch(err => console.error(' Błąd Mongo:', err));
+}).then(() => console.log('✅ Połączono z MongoDB'))
+  .catch(err => console.error('❌ Błąd Mongo:', err));
 
-// Model użytkownika
+// MODELE
 const User = mongoose.model('User', new mongoose.Schema({
   username: String,
   password: String
 }));
 
-// Rejestracja
+const Transaction = mongoose.model('Transaction', new mongoose.Schema({
+  userId: String,
+  type: String,
+  category: String,
+  amount: Number,
+  date: String
+}));
+
+const Subscription = mongoose.model('Subscription', new mongoose.Schema({}, { strict: false }));
+
+// VAPID
+webpush.setVapidDetails(
+  'mailto:kontakt@example.com',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+
+// ENDPOINTY
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   const existing = await User.findOne({ username });
@@ -37,7 +51,6 @@ app.post('/register', async (req, res) => {
   res.status(200).json({ message: "Zarejestrowano" });
 });
 
-// Logowanie
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   const user = await User.findOne({ username, password });
@@ -46,20 +59,6 @@ app.post('/login', async (req, res) => {
   res.status(200).json({ message: "Zalogowano poprawnie" });
 });
 
-app.listen(port, () => {
-  console.log( Server działa na porcie ${port});
-});
-
-// Model transakcji
-const Transaction = mongoose.model('Transaction', new mongoose.Schema({
-  userId: String,
-  type: String,           // 'income' / 'expense'
-  category: String,
-  amount: Number,
-  date: String
-}));
-
-// Dodawanie transakcji
 app.post('/api/transactions', async (req, res) => {
   try {
     const transaction = new Transaction(req.body);
@@ -71,7 +70,6 @@ app.post('/api/transactions', async (req, res) => {
   }
 });
 
-// Pobieranie transakcji użytkownika
 app.get('/api/transactions/:userId', async (req, res) => {
   try {
     const transactions = await Transaction.find({ userId: req.params.userId });
@@ -82,24 +80,21 @@ app.get('/api/transactions/:userId', async (req, res) => {
   }
 });
 
-const webpush = require('web-push');
+app.post('/subscribe', async (req, res) => {
+  try {
+    const subscription = new Subscription(req.body);
+    await subscription.save();
+    console.log('✅ Subskrypcja zapisana:', req.body);
+    res.status(201).json({ message: 'Subskrypcja zapisana' });
+  } catch (error) {
+    console.error('❌ Błąd zapisu subskrypcji:', error);
+    res.status(500).json({ message: 'Błąd zapisu subskrypcji' });
+  }
+});
 
-// VAPID konfig
-webpush.setVapidDetails(
-  'mailto:you@example.com',
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
-
-// Model subskrypcji
-const subscriptionSchema = new mongoose.Schema({}, { strict: false });
-const Subscription = mongoose.model('Subscription', subscriptionSchema);
-
-// Endpoint do wysyłania powiadomień
 app.post('/notify', async (req, res) => {
   try {
     const subs = await Subscription.find();
-
     const payload = JSON.stringify({
       title: '🔔 Nowe powiadomienie!',
       body: 'Testowe PUSH z backendu Railway!',
@@ -118,4 +113,8 @@ app.post('/notify', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.listen(port, () => {
+  console.log(`🚀 Serwer działa na porcie ${port}`);
 });
