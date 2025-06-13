@@ -49,3 +49,35 @@ app.post('/login', async (req, res) => {
 app.listen(port, () => {
   console.log(` Server działa na porcie ${port}`);
 });
+
+// Model transakcji
+const Transaction = mongoose.model('Transaction', new mongoose.Schema({
+  userId: String,
+  type: String,           // 'income' / 'expense'
+  category: String,
+  amount: Number,
+  date: String
+}));
+
+// Dodawanie transakcji
+app.post('/api/transactions', async (req, res) => {
+  try {
+    const transaction = new Transaction(req.body);
+    await transaction.save();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Błąd zapisu transakcji:', err);
+    res.status(500).json({ success: false });
+  }
+});
+
+// Pobieranie transakcji użytkownika
+app.get('/api/transactions/:userId', async (req, res) => {
+  try {
+    const transactions = await Transaction.find({ userId: req.params.userId });
+    res.json(transactions);
+  } catch (err) {
+    console.error('Błąd odczytu transakcji:', err);
+    res.status(500).json([]);
+  }
+});
